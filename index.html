@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title></title>
+
+		<style>
+			#box{
+				width:600px;
+				height:500px;
+				border:3px solid black;
+				margin:10px auto;
+				position:relative;
+			}
+			#cav{
+				/*background: red;*/
+			}
+			#btn{
+
+				position:absolute;
+				top:80%;
+				left:50%;
+				width:150px;
+				height:40px;
+				border:3px solid white;
+				text-align: center;
+				line-height: 40px;
+				background: red;
+				transform: translateX(-50%);
+				border-radius: 10px;
+				color:white;
+				font-weight: 700;
+				display: none;
+			}
+		</style>
+		<script>
+			window.onload = function(){
+				var zm = new Zm();
+				zm.init();
+			}
+
+			function Zm(){
+				this.oBox = document.getElementById("box");
+				this.cavBox = document.getElementById("cav");
+				this.ocav = this.cavBox.getContext('2d');
+				this.ball = [{x:300,y:0,r:200,startX:300,startY:0,arc:0}];
+
+				this.bullet = [];
+				this.timer = null;
+				this.hudeg = 0;//决定怪兽头朝向的弧度
+				this.score = 0;//统计分数
+
+				this.init = function(){
+					var This = this;
+					//创建新的目标球
+					this.createBall();
+					//鼠标移动，决定怪兽朝向弧度
+					this.mosterDirect();
+					//创建子弹
+					this.createBullet();
+
+					this.timer = setInterval(function(){
+						//清楚画布
+						This.ocav.clearRect(0,0,600,500);
+//						console.log(this);
+						//1,画游戏路径
+						This.drawPath();
+						//2,画目标球
+						This.drawBall();
+
+						//4.画小怪兽
+						This.moster(This.hudeg);
+						//5.画子弹
+						This.changeBulletPosition();
+						//6.判断子弹和目标球是否碰上
+						This.onHit();
+						//3.改变每个球的角度，进而改变计算每个球的圆心x,y
+						This.changeBallPosition();
+					},30);
+				}
+				this.drawPath = function(){
+					//1,外围半圆
+					this.ocav.beginPath();
+					this.ocav.arc(300,200,200,-90*Math.PI/180,180*Math.PI/180);
+					this.ocav.stroke();
+					//2，内圈半圆
+					this.ocav.beginPath();
+					this.ocav.arc(250,200,150,0*Math.PI/180,180*Math.PI/180,true);
+					this.ocav.stroke();
+					//3,目标点
+					this.ocav.beginPath();
+					this.ocav.arc(400,200,20,0*Math.PI/180,360*Math.PI/180,true);
+					this.ocav.stroke();
+				}
+				//根据每个球的信息，绘制
+				this.drawBall = function(){
+					for(var i=0;i<this.ball.length;i++){
+						this.ocav.beginPath();
+						this.ocav.arc(this.ball[i].x,this.ball[i].y,20,0,360*Math.PI/180);
+						this.ocav.fill();
+					}
+				}
+				//改变球的位置
+				this.changeBallPosition = function(){
+					for(var i=0;i<this.ball.length;i++){
+						this.ball[i].arc++;
+						if(this.ball[i].arc==270){
+							this.ball[i].r = 150;
+							this.ball[i].startX = 250;
+
+						}
+						if(this.ball[i].arc == 270 + 180+1){
+							//游戏结束
+							clearInterval(this.timer);
+							this.gameOver();
+						}
+						//算法原理，见目标球运动原理
+						this.ball[i].x = this.ball[i].startX + this.ball[i].r * Math.sin(this.ball[i].arc*Math.PI/180);
+						this.ball[i].y = 200 - this.ball[i].r * Math.cos(this.ball[i].arc*Math.PI/180);
+					}
+				}
+				//创建新的小球
+				this.createBall = function(){
+					var This = this;
+					setInterval(function(){
+						This.ball.push(
+							{
+								x:300,y:0,r:200,startX:300,startY:0,arc:0
+							}
+						)
+					},500)
+
+				}
+				//处理小怪兽
+				this.moster = function(){
+					var oImg = new Image();
+					oImg.src = 'person.png';
+					this.ocav.save();
+					this.ocav.translate(300,200);
+					this.ocav.rotate(this.hudeg);
+					this.ocav.translate(-40,-40);
+					this.ocav.drawImage(oImg,0,0);
+					this.ocav.restore();
+				}
+
+				this.mosterDirect = function(){
+					var This = this;
+					this.cavBox.onmousemove = function(ev){
+						var ev = ev || event;
+						var a = ev.offsetX - 300;
+						var b = ev.offsetY - 200;
+						var c = Math.sqrt(a*a+b*b);
+
+						if(a>0&&b<0){
+							This.hudeg = Math.asin(a/c);
+						}else if(a>0&&b>0){
+							This.hudeg = 90*Math.PI/180 + Math.asin(b/c);
+						}else if(b>0&&a<0){
+							This.hudeg = 180*Math.PI/180 + Math.asin(-a/c);
+						}else{
+							This.hudeg = 270*Math.PI/180 + Math.asin(-b/c);
+						}
+					}
+				}
+
+				this.createBullet = function(){
+					var This = this;
+					this.cavBox.onmousedown = function(ev){
+						var ev = ev || event;
+						var a = ev.offsetX - 300;
+						var b = ev.offsetY - 200;
+						var c = Math.sqrt(a*a+b*b);
+						var speedX = a/c * 5;
+						var speedY = b/c * 5;
+						This.bullet.push({
+							x:300,
+							y:200,
+							speedX:speedX,
+							speedY:speedY
+						});
+						console.log(This.bullet);
+					}
+				}
+				this.changeBulletPosition = function(){
+					for(var i=0;i<this.bullet.length;i++){
+						this.bullet[i].x += this.bullet[i].speedX;
+						this.bullet[i].y += this.bullet[i].speedY;
+						this.ocav.save();
+						this.ocav.beginPath();
+						this.ocav.fillStyle = 'red';
+						this.ocav.arc(this.bullet[i].x,this.bullet[i].y,20,0,360*Math.PI/180);
+						this.ocav.fill();
+						this.ocav.restore();
+					}
+				}
+//				碰撞检测方法
+				this.hit = function(x1,y1,x2,y2){
+					var a = x2-x1;
+					var b = y2-y1;
+					var c = Math.sqrt(a*a+b*b);
+					if(c<40){
+						return true;
+					}else{
+						return false;
+					}
+				}
+
+				this.onHit = function(){
+					for(var i=0;i<this.bullet.length;i++){
+						for(var j=0;j<this.ball.length;j++){
+							if(this.hit(this.bullet[i].x,this.bullet[i].y,this.ball[j].x,this.ball[j].y)){
+								//执行到这里，说明碰上了
+								this.bullet.splice(i,1);
+								this.ball.splice(j,1);
+								this.score++;
+								break;
+							}
+						}
+					}
+				}
+				this.gameOver = function(){
+					this.ocav.clearRect(0,0,600,500);
+					this.ocav.beginPath();
+					this.ocav.fillStyle = 'crimson';
+					this.ocav.fillRect(0,0,600,500);
+					this.ocav.beginPath();
+					this.ocav.fillStyle = 'black';
+					this.ocav.font = '40px 微软雅黑';
+					this.ocav.textAlign = 'center';
+					this.ocav.fillText('游戏结束',this.cavBox.width/2,this.cavBox.height/2);
+					this.ocav.font = '30px 微软雅黑';
+					this.ocav.textAlign = 'center';
+					this.ocav.fillText('您的分数'+this.score+'分',this.cavBox.width/2,this.cavBox.height*2/3);
+					var oBtn = document.getElementById("btn");
+					oBtn.style.display = 'block';
+					oBtn.onclick = function(){
+						window.location.reload();
+//						window.location.href = 'http://www.baidu.com';
+					}
+
+				}
+			}
+		</script>
+
+	</head>
+	<body>
+		<div id="box">
+			<canvas id="cav" width="600" height="500"></canvas>
+			<div id="btn">重新开始</div>
+		</div>
+	</body>
+</html>
